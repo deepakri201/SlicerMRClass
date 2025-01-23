@@ -16,6 +16,9 @@ from slicer.parameterNodeWrapper import (
 
 from slicer import vtkMRMLScalarVolumeNode
 
+import qt 
+print ("imported qt")
+
 
 #
 # SlicerMRClass
@@ -173,6 +176,9 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
+        # Add patients to list 
+        self.addPatientsToList()
+
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
@@ -251,6 +257,43 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # If additional output volume is selected then result with inverted threshold is written there
                 self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
                                    self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
+    
+    def listPatients(self):
+        # list patients in DICOM database 
+        db = slicer.dicomDatabase
+        patientList = list(db.patients())
+        return patientList 
+    
+    def addPatientIDs(self, patientIDs):
+        # Clear existing widgets in the layout (if needed)
+        while self.patientIDListLayout.count():
+            child = self.patientIDListLayout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+
+        # # Add each patient ID as a QLabel
+        # for patientID in patientIDs:
+        #     label = qt.QLabel(patientID)
+        #     self.patientIDListLayout.addWidget(label)
+                
+        # Add each patient ID as a QCheckBox
+        self.checkboxes = []  # Store references to the checkboxes
+        for patientID in patientIDs:
+            checkbox = qt.QCheckBox(patientID)
+            # checkbox.stateChanged.connect(self.onCheckboxStateChanged)  # Connect state change
+            self.patientIDListLayout.addWidget(checkbox)
+            self.checkboxes.append(checkbox)
+    
+    def addPatientsToList(self):
+        self.patientIDListGroupBox = self.ui.PatientIDlist
+        # Create and set a QVBoxLayout for the group box
+        self.patientIDListLayout = qt.QVBoxLayout()
+        self.patientIDListGroupBox.setLayout(self.patientIDListLayout)
+        # Add text to the layout
+        patientList = ["Patient 1", "Patient 2", "Patient 3"]
+        print('patientList: ' + str(patientList))
+        self.addPatientIDs(patientList)
+
 
 
 #
@@ -313,15 +356,6 @@ class SlicerMRClassLogic(ScriptedLoadableModuleLogic):
         stopTime = time.time()
         logging.info(f"Processing completed in {stopTime-startTime:.2f} seconds")
 
-    def listPatients(self):
-        # list patients in DICOM database 
-        db = slicer.dicomDatabase
-        patientList = list(db.patients())
-        return patientList 
-    
-    def addPatientsToWidget(self):
-        # add the list of patients to the widget 
-        return 
 
 
 #
