@@ -16,17 +16,6 @@
      <property name="title">
       <string>PatientID list</string>
      </property>
-     <widget class="QWidget" name="verticalLayoutWidget">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>10</y>
-        <width>160</width>
-        <height>80</height>
-       </rect>
-      </property>
-      <layout class="QVBoxLayout" name="PatientIDListLayout"/>
-     </widget>
     </widget>
    </item>
    <item>
@@ -34,17 +23,6 @@
      <property name="title">
       <string>StudyID list</string>
      </property>
-     <widget class="QWidget" name="verticalLayoutWidget_2">
-      <property name="geometry">
-       <rect>
-        <x>100</x>
-        <y>10</y>
-        <width>160</width>
-        <height>80</height>
-       </rect>
-      </property>
-      <layout class="QVBoxLayout" name="StudyIDListLayout"/>
-     </widget>
     </widget>
    </item>
    <item>

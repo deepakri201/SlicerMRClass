@@ -16,6 +16,11 @@ from slicer.parameterNodeWrapper import (
 
 from slicer import vtkMRMLScalarVolumeNode
 
+import qt 
+
+from DICOMLib import DICOMUtils 
+from functools import partial
+
 
 #
 # SlicerMRClass
@@ -173,6 +178,9 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
+        # Add patients to list 
+        self.addPatientsToList()
+
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
@@ -251,6 +259,57 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # If additional output volume is selected then result with inverted threshold is written there
                 self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
                                    self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
+    
+    def listPatients(self):
+        # list patients in DICOM database 
+        db = slicer.dicomDatabase
+        # this does not give the actual PatientID
+        patientList = list(db.patients())
+        patientIDList = [] 
+        # get the actual PatientID
+        for patient in patientList: 
+            studyList = db.studiesForPatient(patient)
+            for study in studyList: 
+                seriesList = db.seriesForStudy(study)
+                fileList = db.filesForSeries(seriesList[0])
+                # get PatientID 
+                patientIDList.append(db.fileValue(fileList[0], "0010,0020"))
+        patientIDList = sorted(list(set(patientIDList)))  
+        return patientIDList 
+
+    def onPatientRadioButtonToggled(self, radiobutton, checked):
+        if checked: 
+            print(f"Selected Patient: {radiobutton.text}")
+            self.patientIDSelected = radiobutton.text
+        else:
+            self.patientIDSelected = ''
+    
+    def addPatientIDs(self, patientIDs):
+        # Clear existing widgets in the layout (if needed)
+        while self.patientIDListLayout.count():
+            child = self.patientIDListLayout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+                
+        # Add each patient ID as a QRadioButton
+        self.patientRadioButtons = [] 
+        for patientID in patientIDs:
+            # checkbox.stateChanged.connect(self.onCheckboxStateChanged)  # Connect state change
+            radiobutton = qt.QRadioButton(patientID)
+            radiobutton.toggled.connect(partial(self.onPatientRadioButtonToggled, radiobutton))
+            self.patientIDListLayout.addWidget(radiobutton)
+            self.patientRadioButtons.append(radiobutton)
+    
+    def addPatientsToList(self):
+        self.patientIDListGroupBox = self.ui.PatientIDlist
+        # Create and set a QVBoxLayout for the group box
+        self.patientIDListLayout = qt.QVBoxLayout()
+        self.patientIDListGroupBox.setLayout(self.patientIDListLayout)
+        # Add text to the layout
+        patientIDList = self.listPatients()
+        self.addPatientIDs(patientIDList)
+
+
 
 
 #
@@ -313,15 +372,6 @@ class SlicerMRClassLogic(ScriptedLoadableModuleLogic):
         stopTime = time.time()
         logging.info(f"Processing completed in {stopTime-startTime:.2f} seconds")
 
-    def listPatients(self):
-        # list patients in DICOM database 
-        db = slicer.dicomDatabase
-        patientList = list(db.patients())
-        return patientList 
-    
-    def addPatientsToWidget(self):
-        # add the list of patients to the widget 
-        return 
 
 
 #
