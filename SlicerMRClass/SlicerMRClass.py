@@ -17,7 +17,9 @@ from slicer.parameterNodeWrapper import (
 from slicer import vtkMRMLScalarVolumeNode
 
 import qt 
-print ("imported qt")
+
+from DICOMLib import DICOMUtils 
+from functools import partial
 
 
 #
@@ -261,8 +263,26 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def listPatients(self):
         # list patients in DICOM database 
         db = slicer.dicomDatabase
+        # this does not give the actual PatientID
         patientList = list(db.patients())
-        return patientList 
+        patientIDList = [] 
+        # get the actual PatientID
+        for patient in patientList: 
+            studyList = db.studiesForPatient(patient)
+            for study in studyList: 
+                seriesList = db.seriesForStudy(study)
+                fileList = db.filesForSeries(seriesList[0])
+                # get PatientID 
+                patientIDList.append(db.fileValue(fileList[0], "0010,0020"))
+        patientIDList = sorted(list(set(patientIDList)))  
+        return patientIDList 
+
+    def onPatientRadioButtonToggled(self, radiobutton, checked):
+        if checked: 
+            print(f"Selected Patient: {radiobutton.text}")
+            self.patientIDSelected = radiobutton.text
+        else:
+            self.patientIDSelected = ''
     
     def addPatientIDs(self, patientIDs):
         # Clear existing widgets in the layout (if needed)
@@ -270,19 +290,15 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             child = self.patientIDListLayout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
-
-        # # Add each patient ID as a QLabel
-        # for patientID in patientIDs:
-        #     label = qt.QLabel(patientID)
-        #     self.patientIDListLayout.addWidget(label)
                 
-        # Add each patient ID as a QCheckBox
-        self.checkboxes = []  # Store references to the checkboxes
+        # Add each patient ID as a QRadioButton
+        self.patientRadioButtons = [] 
         for patientID in patientIDs:
-            checkbox = qt.QCheckBox(patientID)
             # checkbox.stateChanged.connect(self.onCheckboxStateChanged)  # Connect state change
-            self.patientIDListLayout.addWidget(checkbox)
-            self.checkboxes.append(checkbox)
+            radiobutton = qt.QRadioButton(patientID)
+            radiobutton.toggled.connect(partial(self.onPatientRadioButtonToggled, radiobutton))
+            self.patientIDListLayout.addWidget(radiobutton)
+            self.patientRadioButtons.append(radiobutton)
     
     def addPatientsToList(self):
         self.patientIDListGroupBox = self.ui.PatientIDlist
@@ -290,9 +306,9 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.patientIDListLayout = qt.QVBoxLayout()
         self.patientIDListGroupBox.setLayout(self.patientIDListLayout)
         # Add text to the layout
-        patientList = ["Patient 1", "Patient 2", "Patient 3"]
-        print('patientList: ' + str(patientList))
-        self.addPatientIDs(patientList)
+        patientIDList = self.listPatients()
+        self.addPatientIDs(patientIDList)
+
 
 
 
