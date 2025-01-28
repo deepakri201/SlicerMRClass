@@ -181,6 +181,14 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Add patients to list 
         self.addPatientsToList()
 
+        # Detect which patient is selected 
+        self.patientIDListGroupBox.connect("currentIndexChanged(int)", self.onPatientSelected)
+        self.patientIDListGroupBox.setEnabled(True)
+
+        # # Detect which study is selected 
+        # self.studyIDListGroupBox.connect("currentIndexChanged(int)", self.onStudySelected)
+        # self.studyIDListGroupBox.setEnabled(True)
+
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
@@ -310,68 +318,115 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # print('studyList: ' + str(studyList))
         # return studyList 
 
-    def onPatientRadioButtonToggled(self, radiobutton, checked):
-        if checked: 
-            print(f"Selected Patient: {radiobutton.text}")
-            # self.patientIDSelected = radiobutton.text
-            # Instead of getting the PatientID, get the SlicerPatientID 
-            # Create a reverse lookup dictionary
-            patientIDToSlicerPatientID = {value['PatientID']: value['SlicerPatientID'] for key, value in self.patientMap.items()}
-            # Lookup the SlicerPatientID
-            slicerPatientID = patientIDToSlicerPatientID.get(radiobutton.text)
-            self.slicerPatientIDSelected = slicerPatientID
-            # add new studies to list 
-            self.updateStudiesToList() 
-        else:
-            # self.patientIDSelected = ''
-            self.slicerPatientIDSelected = ''
+    # def onPatientRadioButtonToggled(self, radiobutton, checked):
+    #     if checked: 
+    #         print(f"Selected Patient: {radiobutton.text}")
+    #         # self.patientIDSelected = radiobutton.text
+    #         # Instead of getting the PatientID, get the SlicerPatientID 
+    #         # Create a reverse lookup dictionary
+    #         patientIDToSlicerPatientID = {value['PatientID']: value['SlicerPatientID'] for key, value in self.patientMap.items()}
+    #         # Lookup the SlicerPatientID
+    #         slicerPatientID = patientIDToSlicerPatientID.get(radiobutton.text)
+    #         self.slicerPatientIDSelected = slicerPatientID
+    #         # add new studies to list 
+    #         self.updateStudiesToList() 
+    #     else:
+    #         # self.patientIDSelected = ''
+    #         self.slicerPatientIDSelected = ''
 
-    def onStudyRadioButtonToggled(self, radiobutton, checked):
-        if checked: 
-            print(f"Selected Study: {radiobutton.text}")
-            # self.studyIDSelected = radiobutton.text
-            # Instead of getting the StudyID, get the SlicerStudyID 
-            # Create a reverse lookup dictionary
-            studyIDToSlicerStudyID = {value['StudyShortName']: value['SlicerStudyID'] for key, value in self.studyMap.items()}
-            # Lookup the SlicerPatientID
-            slicerStudyID = studyIDToSlicerStudyID.get(radiobutton.text)
-            self.slicerStudyIDSelected = slicerStudyID
-        else:
-            # self.patientIDSelected = ''
-            self.slicerStudyIDSelected = ''
+    # def onStudyRadioButtonToggled(self, radiobutton, checked):
+    #     if checked: 
+    #         print(f"Selected Study: {radiobutton.text}")
+    #         # self.studyIDSelected = radiobutton.text
+    #         # Instead of getting the StudyID, get the SlicerStudyID 
+    #         # Create a reverse lookup dictionary
+    #         studyIDToSlicerStudyID = {value['StudyShortName']: value['SlicerStudyID'] for key, value in self.studyMap.items()}
+    #         # Lookup the SlicerPatientID
+    #         slicerStudyID = studyIDToSlicerStudyID.get(radiobutton.text)
+    #         self.slicerStudyIDSelected = slicerStudyID
+    #     else:
+    #         # self.patientIDSelected = ''
+    #         self.slicerStudyIDSelected = ''
     
+    # def addPatientIDs(self, patientIDs):
+    #     # Clear existing widgets in the layout (if needed)
+    #     while self.patientIDListLayout.count():
+    #         child = self.patientIDListLayout.takeAt(0)
+    #         if child.widget():
+    #             child.widget().deleteLater()
+    #     # Add each patient ID as a QRadioButton
+    #     self.patientRadioButtons = [] 
+    #     for patientID in patientIDs:
+    #         # checkbox.stateChanged.connect(self.onCheckboxStateChanged)  # Connect state change
+    #         radiobutton = qt.QRadioButton(patientID)
+    #         radiobutton.toggled.connect(partial(self.onPatientRadioButtonToggled, radiobutton))
+    #         self.patientIDListLayout.addWidget(radiobutton)
+    #         self.patientRadioButtons.append(radiobutton)
+
+    #     # Select the first patient by default
+    #     if self.patientRadioButtons:
+    #         self.patientRadioButtons[0].setChecked(True)
+
+    # def addStudies(self, studies): 
+    #     # Clear existing widgets in the layout (if needed)
+    #     while self.studyListLayout.count():
+    #         child = self.studyListLayout.takeAt(0)
+    #         if child.widget():
+    #             child.widget().deleteLater()
+    #     # Add each study as a QRadioButton 
+    #     self.studyRadioButtons = [] 
+    #     for study in studies:
+    #         radiobutton = qt.QRadioButton(study)
+    #         radiobutton.toggled.connect(partial(self.onStudyRadioButtonToggled, radiobutton))
+    #         self.studyListLayout.addWidget(radiobutton)
+    #         self.studyRadioButtons.append(radiobutton)
+        
     def addPatientIDs(self, patientIDs):
-        # Clear existing widgets in the layout (if needed)
-        while self.patientIDListLayout.count():
-            child = self.patientIDListLayout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-        # Add each patient ID as a QRadioButton
-        self.patientRadioButtons = [] 
-        for patientID in patientIDs:
-            # checkbox.stateChanged.connect(self.onCheckboxStateChanged)  # Connect state change
-            radiobutton = qt.QRadioButton(patientID)
-            radiobutton.toggled.connect(partial(self.onPatientRadioButtonToggled, radiobutton))
-            self.patientIDListLayout.addWidget(radiobutton)
-            self.patientRadioButtons.append(radiobutton)
+        # add patients to box
+        self.patientIDListGroupBox.addItems(patientIDs)
+        # set the selected patient to be the first one by default
+        self.patientIDListGroupBox.setCurrentIndex(0)
+        self.patient = self.patientIDListGroupBox.currentText 
+        print('Selected patient: ' + str(self.patient))
 
-        # Select the first patient by default
-        if self.patientRadioButtons:
-            self.patientRadioButtons[0].setChecked(True)
+    def addStudies(self, studies):
+        # first clear 
+        self.clearStudyIDListGroupBox() 
+        # add studies to box 
+        self.studyIDListGroupBox.addItems(studies)
+        # set the selected study to be the first one by default 
+        self.studyIDListGroupBox.setCurrentIndex(0) 
+        self.study = self.studyIDListGroupBox.currentText 
+        
+    def onPatientSelected(self):
+        currentText = self.patientIDListGroupBox.currentText
+        # if empty 
+        if currentText != "":
+            self.patient = currentText
+        # print out currently selected patient 
+        print('Selected patient: ' + str(self.patient))
+        # get the list of studies 
+        self.patientIDSelected = self.patient 
+        # Get the SlicerPatientID 
+        # Create a reverse lookup dictionary
+        patientIDToSlicerPatientID = {value['PatientID']: value['SlicerPatientID'] for key, value in self.patientMap.items()}
+        # Lookup the SlicerPatientID
+        slicerPatientID = patientIDToSlicerPatientID.get(self.patientIDSelected)
+        self.slicerPatientIDSelected = slicerPatientID
+        # add new studies to list 
+        self.updateStudiesToList() 
 
-    def addStudies(self, studies): 
-        # Clear existing widgets in the layout (if needed)
-        while self.studyListLayout.count():
-            child = self.studyListLayout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-        # Add each study as a QRadioButton 
-        self.studyRadioButtons = [] 
-        for study in studies:
-            radiobutton = qt.QRadioButton(study)
-            radiobutton.toggled.connect(partial(self.onStudyRadioButtonToggled, radiobutton))
-            self.studyListLayout.addWidget(radiobutton)
-            self.studyRadioButtons.append(radiobutton)
+        # Detect which study is selected 
+        self.studyIDListGroupBox.connect("currentIndexChanged(int)", self.onStudySelected)
+        self.studyIDListGroupBox.setEnabled(True)
+
+    
+    def onStudySelected(self):
+        currentText = self.studyIDListGroupBox.currentText
+        if currentText != "":
+            self.study = currentText
+        # print out currently selected study 
+        print('Selected study: ' + str(self.study))
         
     def addPatientsToList(self):
         self.patientIDListGroupBox = self.ui.PatientIDlist
@@ -383,6 +438,8 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         patientIDList = [value['PatientID'] for key, value in self.patientMap.items()]
         # Add text to the layout
         self.addPatientIDs(patientIDList)
+        # Set it so the first patient is automatically selected 
+        self.patientIDListGroupBox.setCurrentIndex(0)
 
     # def addStudiesToList(self): 
     #     self.studyListGroupBox = self.ui.StudyIDlist 
@@ -395,17 +452,18 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     #     # Add text to the layout 
     #     self.addStudies(studyIDList)
 
+
     def updateStudiesToList(self): 
-        self.studyListGroupBox = self.ui.StudyIDlist 
+        self.studyIDListGroupBox = self.ui.StudyIDlist 
         # Get the existing layout of the StudyIDlist group box
         # layout = self.ui.StudyIDlist.layout()
-        layout = self.studyListGroupBox.layout() 
+        layout = self.studyIDListGroupBox.layout() 
         # If the layout doesn't exist, create one
         if layout is None:
             # layout = qt.QVBoxLayout(self.ui.StudyIDlist)
             # self.ui.StudyIDlist.setLayout(layout)
-            self.studyListLayout = qt.QVBoxLayout() 
-            self.studyListGroupBox.setLayout(self.studyListLayout) 
+            self.studyIDListLayout = qt.QVBoxLayout() 
+            self.studyIDListGroupBox.setLayout(self.studyIDListLayout) 
         # Clear existing widgets in the layout
         if layout is not None: 
             while layout.count():
@@ -415,6 +473,22 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.listStudies()
         studyIDList = [value['StudyShortName'] for key, value in self.studyMap.items()]
         self.addStudies(studyIDList)
+
+
+    # def clearStudyIDListGroupBox(self):
+    #     """Remove all items/widgets from the ctkGroupBox."""
+    #     # while self.StudyIDListLayout.count():
+    #     print("self.studyIDListGroupBox.layout().count()" + str(self.studyIDListGroupBox.layout().count()))
+    #     while self.studyIDListGroupBox.layout().count(): 
+    #         # child = self.StudyIDListLayout.takeAt(0)  # Remove the item at index 0
+    #         child = self.StudyIDListGroupBox.layout().takeAt(0) 
+    #         if child.widget():
+    #             child.widget().deleteLater()  # Delete the widget
+    
+    
+    def clearStudyIDListGroupBox(self): 
+        # Remove all studies before repopulating 
+        self.studyIDListGroupBox.clear()
 
 
 
