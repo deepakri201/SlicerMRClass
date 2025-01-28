@@ -189,6 +189,12 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self.studyIDListGroupBox.connect("currentIndexChanged(int)", self.onStudySelected)
         # self.studyIDListGroupBox.setEnabled(True)
 
+        # set text 
+        self.ui.ListPatientsText.setPlainText("Choose a single patient")
+        self.ui.ListStudiesText.setPlainText("Choose a single study")
+        self.ui.ListPatientsText.setFixedHeight(27)
+        self.ui.ListStudiesText.setFixedHeight(27)
+
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
@@ -489,6 +495,9 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def clearStudyIDListGroupBox(self): 
         # Remove all studies before repopulating 
         self.studyIDListGroupBox.clear()
+
+
+    # def listSeries(self): 
 
 
 
