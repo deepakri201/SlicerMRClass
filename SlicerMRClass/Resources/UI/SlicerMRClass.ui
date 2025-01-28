@@ -12,18 +12,10 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="ctkCollapsibleGroupBox" name="PatientIDlist">
-     <property name="title">
-      <string>PatientID list</string>
-     </property>
-    </widget>
+    <widget class="ctkComboBox" name="PatientIDlist"/>
    </item>
    <item>
-    <widget class="ctkCollapsibleGroupBox" name="StudyIDlist">
-     <property name="title">
-      <string>StudyID list</string>
-     </property>
-    </widget>
+    <widget class="ctkComboBox" name="StudyIDlist"/>
    </item>
    <item>
     <widget class="QPushButton" name="applyButton">
@@ -55,10 +47,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ctkCollapsibleGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>ctkCollapsibleGroupBox.h</header>
-   <container>1</container>
+   <class>ctkComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ctkComboBox.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLWidget</class>
