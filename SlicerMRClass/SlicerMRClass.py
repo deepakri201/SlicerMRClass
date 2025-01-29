@@ -22,6 +22,7 @@ from DICOMLib import DICOMUtils
 from functools import partial
 
 import ctk 
+import numpy as np 
 
 #
 # SlicerMRClass
@@ -516,37 +517,68 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self.ListSeriesTable = self.ui.ListSeriesTable
         # list series 
         self.listSeries() 
+
         # get SeriesNumbers, SeriesDescriptions, Modalities 
         SeriesNumberList = [value['SeriesNumber'] for key, value in self.seriesMap.items()] 
         SeriesDescriptionList = [value['SeriesDescription'] for key,value in self.seriesMap.items()]
         ModalityList = [value['Modality'] for key,value in self.seriesMap.items()]
 
+        # Order these lists according to the SeriesNumber 
+        SeriesNumberList = [np.int16(f) for f in SeriesNumberList]
+        order_index = np.argsort(np.asarray(SeriesNumberList))
+        # np.array(X_train)[indices.astype(int)]
+        SeriesNumberListSorted = np.array(SeriesNumberList)[order_index.astype(int)]
+        SeriesNumberListSorted = [str(f) for f in SeriesNumberListSorted]
+        SeriesDescriptionListSorted = np.array(SeriesDescriptionList)[order_index.astype(int)]
+        ModalityListSorted = np.array(ModalityList)[order_index.astype(int)]
+
         # correct 
-        print('SeriesNumberList: ' + str(SeriesNumberList)) 
-        print('SeriesDescriptionList: ' + str(SeriesDescriptionList))
-        print('ModalityList: ' + str(ModalityList))
+        print('SeriesNumberList: ' + str(SeriesNumberListSorted)) 
+        print('SeriesDescriptionList: ' + str(SeriesDescriptionListSorted))
+        print('ModalityList: ' + str(ModalityListSorted))
+
+        # Create a list of 0/1s of these to indicate whether to show or grayed 
+        showSeriesIndex =  [1 if modality == 'MR' else 0 for modality in ModalityList]
+        print('showSeriesIndex: ' + str(showSeriesIndex))
 
         # first create QStandardItemModel 
         self.model = qt.QStandardItemModel() 
         self.model.setColumnCount(3) # SeriesNumber, SeriesDescription, Modality 
         headerNames = [] 
+        headerNames.append("Modality")
         headerNames.append("SeriesNumber")
         headerNames.append("SeriesDescription")
-        headerNames.append("Modality")
         self.model.setHorizontalHeaderLabels(headerNames)
+
         # add series to list 
-        for n in range(0,len(SeriesDescriptionList)): 
-            SeriesNumberItem = qt.QStandardItem(SeriesNumberList[n]) 
-            SeriesDescriptionItem = qt.QStandardItem(SeriesDescriptionList[n])
-            ModalityItem = qt.QStandardItem(ModalityList[n]) 
+        for n in range(0,len(SeriesDescriptionListSorted)): 
+            ModalityItem = qt.QStandardItem(ModalityListSorted[n]) 
+            SeriesNumberItem = qt.QStandardItem(SeriesNumberListSorted[n]) 
+            SeriesDescriptionItem = qt.QStandardItem(SeriesDescriptionListSorted[n])
+            # Set certain ones to gray if Modality is not "MR"
+            if showSeriesIndex[n]==0:
+                ModalityItem.setForeground(qt.QColor("gray"))
+                SeriesNumberItem.setForeground(qt.QColor("gray"))
+                SeriesDescriptionItem.setForeground(qt.QColor("gray"))
+            # Set to non editable 
+            ModalityItem.setEditable(False) 
             SeriesNumberItem.setEditable(False) 
             SeriesDescriptionItem.setEditable(False)
-            ModalityItem.setEditable(False) 
             row = [] 
+            row.append(ModalityItem)
             row.append(SeriesNumberItem) 
             row.append(SeriesDescriptionItem) 
-            row.append(ModalityItem)
             self.model.appendRow(row)
+
+        # Now set the size of the columns - to be adjusted to length of text 
+        self.ui.ListSeriesTable.verticalHeader().setSectionResizeMode(qt.QHeaderView.ResizeToContents)
+        # self.ui.ListSeriesTable.setSizeAndAdjustPolicy(qt.)
+        # self.ui.ListSeriesTable.resizeColumnsToContents()
+        # self.statTable.setSizeAdjustPolicy(
+        # QtWidgets.QAbstractScrollArea.AdjustToContents)
+        # self.statTable.resizeColumnsToContents()
+        
+        # show 
         self.model.layoutChanged.emit() # need this? 
         self.ui.ListSeriesTable.setModel(self.model) 
         print('self.ui.ListSeriesTable.showGrid: ' + str(self.ui.ListSeriesTable.showGrid)) # should print True/False 
