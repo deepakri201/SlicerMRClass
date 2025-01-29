@@ -12,7 +12,21 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QLabel" name="ListPatientsLabel">
+     <property name="text">
+      <string>TextLabel</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkComboBox" name="PatientIDlist"/>
+   </item>
+   <item>
+    <widget class="QLabel" name="ListStudiesLabel">
+     <property name="text">
+      <string>TextLabel</string>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="ctkComboBox" name="StudyIDlist"/>
