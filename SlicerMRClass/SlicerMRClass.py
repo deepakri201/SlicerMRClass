@@ -190,10 +190,12 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self.studyIDListGroupBox.setEnabled(True)
 
         # set text 
-        self.ui.ListPatientsText.setPlainText("Choose a single patient")
-        self.ui.ListStudiesText.setPlainText("Choose a single study")
-        self.ui.ListPatientsText.setFixedHeight(27)
-        self.ui.ListStudiesText.setFixedHeight(27)
+        # self.ui.ListPatientsText.setPlainText("Choose a single patient")
+        # self.ui.ListStudiesText.setPlainText("Choose a single study")
+        # self.ui.ListPatientsText.setFixedHeight(27)
+        # self.ui.ListStudiesText.setFixedHeight(27)
+        self.ui.ListPatientsLabel.setText("Choose a single patient")
+        self.ui.ListStudiesLabel.setText("Choose a single study")
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
