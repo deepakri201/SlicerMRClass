@@ -21,6 +21,7 @@ import qt
 from DICOMLib import DICOMUtils 
 from functools import partial
 
+import ctk 
 
 #
 # SlicerMRClass
@@ -190,12 +191,10 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # self.studyIDListGroupBox.setEnabled(True)
 
         # set text 
-        # self.ui.ListPatientsText.setPlainText("Choose a single patient")
-        # self.ui.ListStudiesText.setPlainText("Choose a single study")
-        # self.ui.ListPatientsText.setFixedHeight(27)
-        # self.ui.ListStudiesText.setFixedHeight(27)
         self.ui.ListPatientsLabel.setText("Choose a single patient")
         self.ui.ListStudiesLabel.setText("Choose a single study")
+        self.ui.ListSeriesLabel.setText("List of series in the study")
+
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
@@ -325,6 +324,26 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.studyMap = studyMap 
         # print('studyList: ' + str(studyList))
         # return studyList 
+    
+    def listSeries(self): 
+        db = slicer.dicomDatabase 
+        # seriesList = db.seriesForStudy(self.study) # the study picked, returns the SeriesInstanceUID?? 
+        seriesList = db.seriesForStudy(self.slicerStudyIDSelected)
+        print("seriesList: " + str(seriesList)) # prints the SeriesInstanceUID 
+        seriesMap = {} 
+        for series in seriesList: 
+            fileList = db.filesForSeries(series) 
+            SeriesDescription = db.fileValue(fileList[0], "0008,103E")
+            SeriesNumber = db.fileValue(fileList[0], "0020,0011")
+            Modality = db.fileValue(fileList[0], "0008,0060")
+            seriesMap[series] = {'SlicerSeriesID': series} 
+            seriesMap[series]['SeriesInstanceUID'] = series 
+            seriesMap[series]['SeriesNumber'] = SeriesNumber
+            seriesMap[series]['SeriesDescription'] = SeriesDescription 
+            seriesMap[series]['Modality'] = Modality 
+        self.seriesMap = seriesMap 
+        # print('seriesMap: ' + str(seriesMap)) # correct
+
 
     # def onPatientRadioButtonToggled(self, radiobutton, checked):
     #     if checked: 
@@ -427,6 +446,7 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Detect which study is selected 
         self.studyIDListGroupBox.connect("currentIndexChanged(int)", self.onStudySelected)
         self.studyIDListGroupBox.setEnabled(True)
+       
 
     
     def onStudySelected(self):
@@ -435,6 +455,16 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.study = currentText
         # print out currently selected study 
         print('Selected study: ' + str(self.study))
+        # get the actual id 
+        self.studyIDSelected = self.study 
+        # Get the SlicerStudyID 
+        # Create a reverse lookup dictionary 
+        studyIDToSlicerStudyID = {value['StudyShortName']: value['SlicerStudyID'] for key, value in self.studyMap.items()}
+        # Lookup the SlicerStudyID 
+        slicerStudyID = studyIDToSlicerStudyID.get(self.studyIDSelected)
+        self.slicerStudyIDSelected = slicerStudyID 
+         # list series 
+        self.addSeriesToList() 
         
     def addPatientsToList(self):
         self.patientIDListGroupBox = self.ui.PatientIDlist
@@ -482,6 +512,48 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         studyIDList = [value['StudyShortName'] for key, value in self.studyMap.items()]
         self.addStudies(studyIDList)
 
+    def addSeriesToList(self): 
+        # self.ListSeriesTable = self.ui.ListSeriesTable
+        # list series 
+        self.listSeries() 
+        # get SeriesNumbers, SeriesDescriptions, Modalities 
+        SeriesNumberList = [value['SeriesNumber'] for key, value in self.seriesMap.items()] 
+        SeriesDescriptionList = [value['SeriesDescription'] for key,value in self.seriesMap.items()]
+        ModalityList = [value['Modality'] for key,value in self.seriesMap.items()]
+
+        # correct 
+        print('SeriesNumberList: ' + str(SeriesNumberList)) 
+        print('SeriesDescriptionList: ' + str(SeriesDescriptionList))
+        print('ModalityList: ' + str(ModalityList))
+
+        # first create QStandardItemModel 
+        self.model = qt.QStandardItemModel() 
+        self.model.setColumnCount(3) # SeriesNumber, SeriesDescription, Modality 
+        headerNames = [] 
+        headerNames.append("SeriesNumber")
+        headerNames.append("SeriesDescription")
+        headerNames.append("Modality")
+        self.model.setHorizontalHeaderLabels(headerNames)
+        # add series to list 
+        for n in range(0,len(SeriesDescriptionList)): 
+            SeriesNumberItem = qt.QStandardItem(SeriesNumberList[n]) 
+            SeriesDescriptionItem = qt.QStandardItem(SeriesDescriptionList[n])
+            ModalityItem = qt.QStandardItem(ModalityList[n]) 
+            SeriesNumberItem.setEditable(False) 
+            SeriesDescriptionItem.setEditable(False)
+            ModalityItem.setEditable(False) 
+            row = [] 
+            row.append(SeriesNumberItem) 
+            row.append(SeriesDescriptionItem) 
+            row.append(ModalityItem)
+            self.model.appendRow(row)
+        self.model.layoutChanged.emit() # need this? 
+        self.ui.ListSeriesTable.setModel(self.model) 
+        print('self.ui.ListSeriesTable.showGrid: ' + str(self.ui.ListSeriesTable.showGrid)) # should print True/False 
+        self.ui.ListSeriesTable.setShowGrid(True)
+
+
+
 
     # def clearStudyIDListGroupBox(self):
     #     """Remove all items/widgets from the ctkGroupBox."""
@@ -498,8 +570,6 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Remove all studies before repopulating 
         self.studyIDListGroupBox.clear()
 
-
-    # def listSeries(self): 
 
 
 
