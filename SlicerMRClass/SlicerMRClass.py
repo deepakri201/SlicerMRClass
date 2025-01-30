@@ -24,6 +24,10 @@ from functools import partial
 import ctk 
 import numpy as np 
 
+import requests 
+
+import pydicom 
+
 #
 # SlicerMRClass
 #
@@ -151,6 +155,57 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
+
+        #######################################
+        ###### First download files needed ####
+        ########################################
+
+        def download_github_release_file(github_release_url, file_name, save_path):
+            # Ensure the Resources directory exists
+            os.makedirs(save_path, exist_ok=True)
+
+            # Construct the full URL for the attachment
+            download_url = f"{github_release_url}/assets/{file_name}"
+
+            # Send the GET request to download the file
+            response = requests.get(download_url, stream=True)
+            if response.status_code == 200:
+                file_path = os.path.join(save_path, file_name)
+                with open(file_path, 'wb') as file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        file.write(chunk)
+                print(f"File downloaded and saved to {file_path}")
+            else:
+                print(f"Failed to download file: {response.status_code} - {response.text}")
+
+        github_release_url = "https://github.com/deepakri201/DICOMScanClassification_pw42/releases/tag/v1.0.0"
+        save_path = os.path.join(slicer.app.temporaryPath, "Resources") 
+        # Download the scaling factors csv file
+        file_name = "scaling_factors_df.csv"
+        self.scaling_factors_filename = os.path.join(save_path, file_name) 
+        download_github_release_file(github_release_url, file_name, save_path)
+        # Download the model onnx file 
+        file_name = "model.onnx"
+        self.model_filename = os.path.join(save_path, file_name)
+        download_github_release_file(github_release_url, file_name, save_path)
+
+        #########################
+        ### Setup AI packages ###
+        #########################
+
+        try: 
+            import onnxruntime as onx 
+        except: 
+            progressDialog = slicer.util.createProgressDialog(labelText='Upgrading onnxruntime. This may take a minute...', maximum=0)
+            slicer.app.processEvents()
+            slicer.util.pip_install("onnxruntime")
+            import onnxruntime as onx 
+            progressDialog.close()
+
+        ##############
+        ### Set up ###
+        ##############
+
         ScriptedLoadableModuleWidget.setup(self)
 
         # Load widget from .ui file (created by Qt Designer).
@@ -168,14 +223,17 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # in batch mode, without a graphical user interface.
         self.logic = SlicerMRClassLogic()
 
-        # Connections
+        ###################
+        ### Connections ###
+        ###################
 
         # These connections ensure that we update parameter node when scene is closed
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
         # Buttons
-        self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        # self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
+        self.ui.runModelButton.connect("clicked(bool)", self.onRunModelButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -275,6 +333,72 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 # If additional output volume is selected then result with inverted threshold is written there
                 self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
                                    self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
+                
+    def onRunModelButton(self) -> None:
+        """Run processing when user clicks "Run Model" button."""
+        with slicer.util.tryWithErrorDisplay(_("Failed to run model on series."), waitCursor=True):
+            # # Compute output
+            # self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
+            #                    self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
+
+            # # Compute inverted output (if needed)
+            # if self.ui.invertedOutputSelector.currentNode():
+            #     # If additional output volume is selected then result with inverted threshold is written there
+            #     self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
+            #                        self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
+            # self.onButtonLoadSeries()
+            # self.onButtonGetImages()
+            self.onButtonLoadSeries() 
+
+    def onButtonLoadSeries(self): 
+        # get each of the series
+        db = slicer.dicomDatabase
+        num_series = len(self.showSeriesIndex)
+        for series in range(0,num_series):
+            fileList = db.filesForSeries(series) 
+            num_files = len(fileList)
+            IPP = [] 
+            for n in range(0,num_files): 
+                IPP.append(db.fileValue(fileList[n], "0020,0032"))
+            # sort files and get IPP and SOPInstanceUID of middle slice 
+            IPP = [float(f) for f in IPP]
+            IPP_index = np.argsort(IPP)
+            # get middle IPP 
+            midIPP_index = np.int32(np.floor(len(IPP_index)/2))
+            # get the appropriate SOPInstanceUID for this particular series 
+            midSOPInstanceUID = db.fileValue(fileList[midIPP_index], "0008,0018")
+            # add to the seriesMap 
+            self.seriesMap[series]['midSOPInstanceUID'] = midSOPInstanceUID
+
+    def onButtonProcessSeriesData(self):
+        # now load each of the series image data and get metadata, and process 
+        db = slicer.dicomDatabase 
+        num_series = len(self.showSeriesIndex) 
+        for series in range(0,num_series): 
+            dicom_file_path = db.fileForInstance(self.seriesMap[series]['midSOPInstanceUID']) 
+            ds = pydicom.dcmread(dicom_file_path) 
+            # get the image data 
+            pixel_array = ds.pixel_array # need to reshape 
+            # get the metadata 
+            RepetitionTime = ds.RepetitionTime 
+            EchoTime = ds.EchoTime 
+            FlipAngle = ds.FlipAngle 
+            scanningSequence = ds.ScanningSequence # EP\SE
+            has_scanningSequence_SE = 0 
+            has_scanningSequence_EP = 0 
+            has_scanningSequence_GR = 0 
+            if "SE" in scanningSequence: 
+                has_scanningSequence_SE = 1 
+            if "EP" in scanningSequence: 
+                has_scanningSequence_EP = 1 
+            if "GR" in scanningSequence: 
+                has_scanningSequence_GR = 1 
+            # process the 
+
+          
+
+   
+
     
     def listPatients(self):
         # list patients in DICOM database 
@@ -538,8 +662,8 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         print('ModalityList: ' + str(ModalityListSorted))
 
         # Create a list of 0/1s of these to indicate whether to show or grayed 
-        showSeriesIndex =  [1 if modality == 'MR' else 0 for modality in ModalityList]
-        print('showSeriesIndex: ' + str(showSeriesIndex))
+        self.showSeriesIndex =  [1 if modality == 'MR' else 0 for modality in ModalityList]
+        print('showSeriesIndex: ' + str(self.showSeriesIndex))
 
         # first create QStandardItemModel 
         self.model = qt.QStandardItemModel() 
@@ -556,7 +680,7 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             SeriesNumberItem = qt.QStandardItem(SeriesNumberListSorted[n]) 
             SeriesDescriptionItem = qt.QStandardItem(SeriesDescriptionListSorted[n])
             # Set certain ones to gray if Modality is not "MR"
-            if showSeriesIndex[n]==0:
+            if self.showSeriesIndex[n]==0:
                 ModalityItem.setForeground(qt.QColor("gray"))
                 SeriesNumberItem.setForeground(qt.QColor("gray"))
                 SeriesDescriptionItem.setForeground(qt.QColor("gray"))
@@ -571,12 +695,7 @@ class SlicerMRClassWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             self.model.appendRow(row)
 
         # Now set the size of the columns - to be adjusted to length of text 
-        self.ui.ListSeriesTable.verticalHeader().setSectionResizeMode(qt.QHeaderView.ResizeToContents)
-        # self.ui.ListSeriesTable.setSizeAndAdjustPolicy(qt.)
-        # self.ui.ListSeriesTable.resizeColumnsToContents()
-        # self.statTable.setSizeAdjustPolicy(
-        # QtWidgets.QAbstractScrollArea.AdjustToContents)
-        # self.statTable.resizeColumnsToContents()
+        # self.ui.ListSeriesTable.verticalHeader().setSectionResizeMode(qt.QHeaderView.ResizeToContents)
         
         # show 
         self.model.layoutChanged.emit() # need this? 
